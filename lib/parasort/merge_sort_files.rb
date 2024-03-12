@@ -1,9 +1,9 @@
 module Parasort
   class MergeSortFiles
     class Destination
-      def initialize
+      def initialize(file)
         @buf = []
-        @file = Tempfile.new('parasort_merging')
+        @file = file
       end
 
       def write(line)
@@ -12,7 +12,7 @@ module Parasort
       end
 
       def flush
-        @buf.each{ |line| @file.write(line) }
+        @file.puts(@buf)
         @buf.clear
       end
 
@@ -21,21 +21,28 @@ module Parasort
         @file.flush
         @file.close
       end
-
-      def path
-        @file.path
-      end
     end
+
+    def STDOUT.close; end
 
     attr_reader :target
 
     def initialize(file_a, file_b, target: nil)
       @loop_a = File.foreach(file_a)
       @loop_b = File.foreach(file_b)
-      @dest = Destination.new
+
+      file = case target
+             when STDOUT
+               STDOUT
+             when String
+               File.new(target, 'w')
+             else
+               Tempfile.new('parasort_merging')
+             end
+      @dest = Destination.new(file)
 
       merge!
-      move!(target)
+      @target = file.path
     end
 
     private
