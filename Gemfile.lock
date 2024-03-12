@@ -1,0 +1,21 @@
+PATH
+  remote: .
+  specs:
+    parasort (0.1.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    minitest (5.22.2)
+    rake (13.1.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  minitest (~> 5.0)
+  parasort!
+  rake (~> 13.0)
+
+BUNDLED WITH
+   2.4.1
