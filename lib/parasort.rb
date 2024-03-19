@@ -54,7 +54,8 @@ module Parasort
       min, max = files.map{ |f| File.basename(f).split('_').map(&:to_i) }.flatten.minmax
       path = File.join(tempdir, "#{min}_#{max}")
       File.open(path, 'w') do |dest|
-        files.map{ |src| File.foreach(src) }.reduce(&:merge_sort).each_slice(10000) do |lines|
+        lineses = files.map{ |src| File.foreach(src) }
+        [].merge_sort(*lineses).each_slice(10000) do |lines|
           dest.puts lines
         end
       end
