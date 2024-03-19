@@ -11,31 +11,47 @@ module Parasort
     def initialize(lines)
       @lines = lines
       @tempdir = File.join('/tmp', Time.now.strftime('%Y%m%d_%H%M%S'))
-      @files = work
+      @files = Files.new(@tempdir)
+      work
     end
 
     def work
       FileUtils.mkdir(tempdir)
-      files = Hash.new{ |h, k| h[k] = [] }
 
       @lines.each_slice(10000).each_with_index do |ls, i|
         ls.sort!
         dest = File.join(tempdir, "#{i}_#{i}")
         File.open(dest, 'w'){ |f| f.puts ls }
-        files[0] << dest
-        lvl, fs = files.detect{ |level, fs| fs.size >= 128 }
-        if lvl
-          files[lvl + 1] << merge(fs)
-          fs.each{ |f| File.delete(f) }
-          files[lvl].clear
-        end
+        @files.add(0, dest)
       end
-      files
+
+      nil
+    end
+  end
+
+  class Files
+    attr_reader :tempdir
+
+    def initialize(tempdir)
+      @tempdir = tempdir
+      @files = Hash.new{ |h, k| h[k] = [] }
+    end
+
+    def add(level, path)
+      @files[level] << path
+      loop do
+        lvl, fs = @files.detect{ |level, fs| fs.size >= 128 }
+        break unless lvl
+
+        @files[lvl + 1] << merge(fs)
+        fs.each{ |f| File.delete(f) }
+        @files[lvl].clear
+      end
+      path
     end
 
     def merge(files)
-      min = File.basename(files[0]).split('_')[0]
-      max = File.basename(files[-1]).split('_')[1]
+      min, max = files.map{ |f| File.basename(f).split('_').map(&:to_i) }.flatten.minmax
       path = File.join(tempdir, "#{min}_#{max}")
       File.open(path, 'w') do |dest|
         files.map{ |src| File.foreach(src) }.reduce(&:merge_sort).each_slice(10000) do |lines|
