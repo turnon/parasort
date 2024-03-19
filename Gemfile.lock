@@ -2,12 +2,14 @@ PATH
   remote: .
   specs:
     parasort (0.1.0)
+      xenum (~> 0.1.2)
 
 GEM
   remote: https://rubygems.org/
   specs:
     minitest (5.22.2)
     rake (13.1.0)
+    xenum (0.1.2)
 
 PLATFORMS
   ruby
