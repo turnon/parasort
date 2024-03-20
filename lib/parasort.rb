@@ -23,7 +23,7 @@ module Parasort
         ls.sort!
         dest = File.join(tempdir, "#{i}_#{i}")
         File.open(dest, 'w'){ |f| f.puts ls }
-        @files.add(0, dest)
+        @files.add(0, PlainFile.new(dest))
       end
 
       nil
@@ -44,31 +44,95 @@ module Parasort
         lvl, fs = @files.detect{ |level, fs| fs.size >= 128 }
         break unless lvl
 
-        @files[lvl + 1] << merge(fs)
+        @files[lvl + 1] << merge(fs.dup)
         @files[lvl].clear
       end
       path
     end
 
     def merge(files)
-      min, max = files.map{ |f| File.basename(f).split('_').map(&:to_i) }.flatten.minmax
+      MergedFile.new(tempdir, files)
+    end
+  end
 
-      # move to one dir
-      merging_dir = File.join(tempdir, "merging_#{min}_#{max}")
-      FileUtils.mkdir(merging_dir)
-      FileUtils.mv(files, merging_dir)
-      files = files.map{ |f| File.join(merging_dir, File.basename(f)) }
+  class PlainFile
+    attr_reader :path, :range
 
-      merged_file = File.join(tempdir, "#{min}_#{max}")
-      File.open(merged_file, 'w') do |dest|
-        lineses = files.map{ |src| File.foreach(src) }
+    def initialize(path)
+      @path = path
+      @range = File.basename(@path).split('_').map(&:to_i)
+    end
+
+    def move_to_dir(dir)
+      FileUtils.mv(@path, dir)
+      @path = File.join(dir, File.basename(@path))
+    end
+
+    def lines
+      File.foreach(@path)
+    end
+  end
+
+  class MergedFile
+    attr_reader :path, :range
+
+    def initialize(dir, files)
+      @done = false
+      @lock = Mutex.new
+      @cond = ConditionVariable.new
+
+      @range = files.map(&:range).flatten.minmax
+      @path = File.join(dir, @range.join('_'))
+      @dir = dir
+
+      Thread.new(files.freeze) do |fs|
+        @lock.synchronize do
+          Process.wait(fork{ _merge(fs) })
+          @done = true
+          @cond.broadcast
+        end
+      end
+    end
+
+    def move_to_dir(dir)
+      wait_for_done
+      FileUtils.mv(@path, dir)
+      @path = File.join(dir, File.basename(@path))
+    end
+
+    def lines
+      wait_for_done
+      File.foreach(@path)
+    end
+
+    private
+
+    def wait_for_done
+      loop do
+        break if @done
+        @lock.synchronize do
+          next if @done
+          @cond.wait(@lock)
+        end
+      end
+    end
+
+    def _merge(files)
+      # move to dir
+      subdir = File.join(@dir, "merging_#{@range.join('_')}")
+      FileUtils.mkdir(subdir)
+      files.each{ |f| f.move_to_dir(subdir) }
+
+      # merge
+      File.open(@path, 'w') do |dest|
+        lineses = files.map(&:lines)
         [].merge_sort(*lineses).each_slice(10000) do |lines|
           dest.puts lines
         end
       end
 
-      FileUtils.rm_rf(merging_dir)
-      merged_file
+      # tear down
+      FileUtils.rm_rf(subdir)
     end
   end
 end
