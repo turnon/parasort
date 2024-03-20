@@ -2,6 +2,7 @@
 
 require_relative "parasort/version"
 
+require "fileutils"
 require "xenum"
 
 module Parasort
@@ -44,7 +45,6 @@ module Parasort
         break unless lvl
 
         @files[lvl + 1] << merge(fs)
-        fs.each{ |f| File.delete(f) }
         @files[lvl].clear
       end
       path
@@ -52,14 +52,23 @@ module Parasort
 
     def merge(files)
       min, max = files.map{ |f| File.basename(f).split('_').map(&:to_i) }.flatten.minmax
-      path = File.join(tempdir, "#{min}_#{max}")
-      File.open(path, 'w') do |dest|
+
+      # move to one dir
+      merging_dir = File.join(tempdir, "merging_#{min}_#{max}")
+      FileUtils.mkdir(merging_dir)
+      FileUtils.mv(files, merging_dir)
+      files = files.map{ |f| File.join(merging_dir, File.basename(f)) }
+
+      merged_file = File.join(tempdir, "#{min}_#{max}")
+      File.open(merged_file, 'w') do |dest|
         lineses = files.map{ |src| File.foreach(src) }
         [].merge_sort(*lineses).each_slice(10000) do |lines|
           dest.puts lines
         end
       end
-      path
+
+      FileUtils.rm_rf(merging_dir)
+      merged_file
     end
   end
 end
