@@ -6,29 +6,29 @@ require "fileutils"
 require "xenum"
 
 module Parasort
-  class S
-    attr_reader :tempdir
+  class Resolver
+    include Enumerable
 
     ATOM_SIZE = ENV['PARASORT_ATOM_SIZE'].to_i.yield_self{ |n| n > 0 ? n : 10000 }
 
     def initialize(lines)
-      @lines = lines
-      @tempdir = File.join('/tmp', Time.now.strftime('%Y%m%d_%H%M%S'))
-      @compound = Compound.new(@tempdir)
-      work
-    end
-
-    def work
+      tempdir = File.join('/tmp', Time.now.strftime('%Y%m%d_%H%M%S'))
       FileUtils.mkdir(tempdir)
 
-      @lines.each_slice(ATOM_SIZE).each_with_index do |ls, i|
+      compound = Compound.new(tempdir)
+      lines.each_slice(ATOM_SIZE).each_with_index do |ls, i|
         ls.sort!
         dest = File.join(tempdir, "#{i}_#{i}")
         File.open(dest, 'w'){ |f| f.puts ls }
-        @compound.add(0, Atom.new(dest))
+        compound.add(0, Atom.new(dest))
       end
+      compound.pack!
 
-      nil
+      @compound = compound
+    end
+
+    def each(&block)
+      @compound.lines.each(&block)
     end
   end
 
@@ -50,6 +50,22 @@ module Parasort
         @compound[level].clear
       end
       path
+    end
+
+    def pack!
+      loop do
+        break if @compound.each_value.map(&:count).sum <= 128
+
+        level, granules = @compound.detect{ |lvl, grans| !grans.empty? }
+        break unless level
+
+        @compound[level + 1] << Molecule.new(tempdir, granules.dup)
+        @compound[level].clear
+      end
+    end
+
+    def lines
+      [].merge_sort(*@compound.flat_map{ |lvl, grans| grans.map(&:lines) })
     end
   end
 
