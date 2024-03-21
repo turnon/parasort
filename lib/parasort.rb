@@ -41,11 +41,11 @@ module Parasort
     def add(level, path)
       @compound[level] << path
       loop do
-        lvl, fs = @compound.detect{ |level, fs| fs.size >= 128 }
-        break unless lvl
+        level, granules = @compound.detect{ |lvl, grans| grans.count >= 128 }
+        break unless level
 
-        @compound[lvl + 1] << Molecule.new(tempdir, fs.dup)
-        @compound[lvl].clear
+        @compound[level + 1] << Molecule.new(tempdir, granules.dup)
+        @compound[level].clear
       end
       path
     end
