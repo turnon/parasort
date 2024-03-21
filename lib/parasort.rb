@@ -12,7 +12,7 @@ module Parasort
     def initialize(lines)
       @lines = lines
       @tempdir = File.join('/tmp', Time.now.strftime('%Y%m%d_%H%M%S'))
-      @files = Files.new(@tempdir)
+      @compound = Compound.new(@tempdir)
       work
     end
 
@@ -23,39 +23,35 @@ module Parasort
         ls.sort!
         dest = File.join(tempdir, "#{i}_#{i}")
         File.open(dest, 'w'){ |f| f.puts ls }
-        @files.add(0, PlainFile.new(dest))
+        @compound.add(0, Atom.new(dest))
       end
 
       nil
     end
   end
 
-  class Files
+  class Compound
     attr_reader :tempdir
 
     def initialize(tempdir)
       @tempdir = tempdir
-      @files = Hash.new{ |h, k| h[k] = [] }
+      @compound = Hash.new{ |h, k| h[k] = [] }
     end
 
     def add(level, path)
-      @files[level] << path
+      @compound[level] << path
       loop do
-        lvl, fs = @files.detect{ |level, fs| fs.size >= 128 }
+        lvl, fs = @compound.detect{ |level, fs| fs.size >= 128 }
         break unless lvl
 
-        @files[lvl + 1] << merge(fs.dup)
-        @files[lvl].clear
+        @compound[lvl + 1] << Molecule.new(tempdir, fs.dup)
+        @compound[lvl].clear
       end
       path
     end
-
-    def merge(files)
-      MergedFile.new(tempdir, files)
-    end
   end
 
-  class PlainFile
+  class Atom
     attr_reader :path, :range
 
     def initialize(path)
@@ -73,7 +69,7 @@ module Parasort
     end
   end
 
-  class MergedFile
+  class Molecule
     attr_reader :path, :range
 
     def initialize(dir, files)
