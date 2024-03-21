@@ -9,6 +9,8 @@ module Parasort
   class S
     attr_reader :tempdir
 
+    ATOM_SIZE = ENV['PARASORT_ATOM_SIZE'].to_i.yield_self{ |n| n > 0 ? n : 10000 }
+
     def initialize(lines)
       @lines = lines
       @tempdir = File.join('/tmp', Time.now.strftime('%Y%m%d_%H%M%S'))
@@ -19,7 +21,7 @@ module Parasort
     def work
       FileUtils.mkdir(tempdir)
 
-      @lines.each_slice(10000).each_with_index do |ls, i|
+      @lines.each_slice(ATOM_SIZE).each_with_index do |ls, i|
         ls.sort!
         dest = File.join(tempdir, "#{i}_#{i}")
         File.open(dest, 'w'){ |f| f.puts ls }
@@ -72,6 +74,8 @@ module Parasort
   class Molecule
     attr_reader :path, :range
 
+    MOLECULE_RATE = ENV['PARASORT_MOLECULE_RATE'].to_i.yield_self{ |n| n > 0 ? n : 10000 }
+
     def initialize(dir, files)
       @done = false
       @lock = Mutex.new
@@ -122,7 +126,7 @@ module Parasort
       # merge
       File.open(@path, 'w') do |dest|
         lineses = files.map(&:lines)
-        [].merge_sort(*lineses).each_slice(10000) do |lines|
+        [].merge_sort(*lineses).each_slice(MOLECULE_RATE) do |lines|
           dest.puts lines
         end
       end
