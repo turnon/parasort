@@ -28,12 +28,14 @@ module Parasort
     end
 
     def each(&block)
-      @compound.lines.each(&block)
+      @compound.each(&block)
     end
   end
 
   class Compound
     attr_reader :tempdir
+
+    GRANULES_COUNT = 128
 
     def initialize(tempdir)
       @tempdir = tempdir
@@ -43,7 +45,7 @@ module Parasort
     def add(level, path)
       @compound[level] << path
       loop do
-        level, granules = @compound.detect{ |lvl, grans| grans.count >= 128 }
+        level, granules = @compound.detect{ |lvl, grans| grans.count >= GRANULES_COUNT }
         break unless level
 
         @compound[level + 1] << Molecule.new(tempdir, granules.dup)
@@ -54,7 +56,7 @@ module Parasort
 
     def pack!
       loop do
-        break if @compound.each_value.map(&:count).sum <= 128
+        break if @compound.each_value.map(&:count).sum <= GRANULES_COUNT
 
         level, granules = @compound.detect{ |lvl, grans| !grans.empty? }
         break unless level
@@ -64,8 +66,8 @@ module Parasort
       end
     end
 
-    def lines
-      [].merge_sort(*@compound.flat_map{ |lvl, grans| grans.map(&:lines) })
+    def each(&block)
+      [].merge_sort(*@compound.flat_map{ |lvl, grans| grans.map(&:each) }).each(&block)
     end
   end
 
@@ -82,8 +84,8 @@ module Parasort
       @path = File.join(dir, File.basename(@path))
     end
 
-    def lines
-      File.foreach(@path)
+    def each(&block)
+      File.foreach(@path, &block)
     end
   end
 
@@ -116,9 +118,9 @@ module Parasort
       @path = File.join(dir, File.basename(@path))
     end
 
-    def lines
+    def each(&block)
       wait_for_done
-      File.foreach(@path)
+      File.foreach(@path, &block)
     end
 
     private
@@ -141,7 +143,7 @@ module Parasort
 
       # merge
       File.open(@path, 'w') do |dest|
-        lineses = files.map(&:lines)
+        lineses = files.map(&:each)
         [].merge_sort(*lineses).each_slice(MOLECULE_RATE) do |lines|
           dest.puts lines
         end
