@@ -6,17 +6,13 @@ require "fileutils"
 require "xenum"
 
 module Parasort
-  class Resolver
-    include Enumerable
-
-    ATOM_SIZE = ENV['PARASORT_ATOM_SIZE'].to_i.yield_self{ |n| n > 0 ? n : 10000 }
-
-    def initialize(lines)
+  class << self
+    def each(lines, &block)
       tempdir = File.join('/tmp', Time.now.strftime('%Y%m%d_%H%M%S'))
       FileUtils.mkdir(tempdir)
 
       compound = Compound.new(tempdir)
-      lines.each_slice(ATOM_SIZE).each_with_index do |ls, i|
+      lines.each_slice(Atom::SIZE).each_with_index do |ls, i|
         ls.sort!
         dest = File.join(tempdir, "#{i}_#{i}")
         File.open(dest, 'w'){ |f| f.puts ls }
@@ -24,15 +20,13 @@ module Parasort
       end
       compound.pack!
 
-      @compound = compound
-    end
-
-    def each(&block)
-      @compound.each(&block)
+      compound.each(&block)
     end
   end
 
   class Compound
+    include Enumerable
+
     attr_reader :tempdir
 
     GRANULES_COUNT = 128
@@ -73,6 +67,8 @@ module Parasort
 
   class Atom
     attr_reader :path, :range
+
+    SIZE = ENV['PARASORT_ATOM_SIZE'].to_i.yield_self{ |n| n > 0 ? n : 10000 }
 
     def initialize(path)
       @path = path

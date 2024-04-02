@@ -20,5 +20,13 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+use as lib
+
+```ruby
+require 'parasort'
+
+Parasort.each(File.foreach(...)) do |line|
+  # ...
+end
+```
 
