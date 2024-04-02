@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+
+require "parasort"
+
+Parasort.each(ARGF) do |line|
+  puts line
+end
