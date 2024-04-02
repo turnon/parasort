@@ -34,6 +34,8 @@ module Parasort
     def initialize(tempdir)
       @tempdir = tempdir
       @compound = Hash.new{ |h, k| h[k] = [] }
+      pid = Process.pid
+      at_exit{ FileUtils.rm_rf(tempdir) if pid == Process.pid }
     end
 
     def add(level, path)
